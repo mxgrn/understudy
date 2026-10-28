@@ -135,6 +135,27 @@ For plural messages, the translator gets sample counts for each plural form
 of the locale (for example `[[1, 21, 31], [2, 3, 4], [0, 5, 6]]` for Russian).
 Understudy stores one row for each form.
 
+### The memory cache
+
+Understudy writes a translation to ETS when a lookup finds it in the database
+or gets it from the translator. Nothing else fills ETS, except `preload/3`.
+These are never in ETS:
+
+- messages that a `.po` file translates (Gettext returns them without
+  Understudy),
+- messages that the translator could not translate,
+- messages in the source locale.
+
+ETS entries do not expire. They are lost when the app stops, and when you call
+`Understudy.MemoryCache.clear/0`. After a restart, the first lookup of each
+message queries the database again. Each node has its own ETS table.
+
+Use the two helpers for different gaps:
+
+- `prewarm/3` fills the database, so that users do not wait for the LLM.
+- `preload/3` fills ETS for one locale with one query, so that lookups do not
+  query the database one message at a time.
+
 ## Your own translator
 
 ```elixir
