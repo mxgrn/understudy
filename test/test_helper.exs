@@ -15,5 +15,6 @@ Ecto.Migrator.run(Understudy.TestRepo, [{1, Understudy.TestMigration}], :up,
 Ecto.Adapters.SQL.Sandbox.mode(Understudy.TestRepo, :manual)
 
 Mimic.copy(Understudy.TestTranslator)
+Mimic.copy(ReqLLM)
 
 ExUnit.start(capture_log: true)
