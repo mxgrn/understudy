@@ -63,6 +63,19 @@ defmodule UnderstudyTest do
       assert TestRepo.get_by!(Translation, text: "Start review").value == "Comenzar repaso"
     end
 
+    test "does not call the translator for messages that are in the database" do
+      stub(TestTranslator, :translate, fn
+        %Message{plural_text: nil} = message, _opts -> {:ok, message.text}
+        message, _opts -> {:ok, [message.text, message.plural_text]}
+      end)
+
+      assert Understudy.prewarm(@backend, "es", skip_translated: false) == :ok
+      Understudy.MemoryCache.clear()
+      reject(&TestTranslator.translate/2)
+
+      assert Understudy.prewarm(@backend, "es", skip_translated: false) == :ok
+    end
+
     test "prewarms only the given domains" do
       expect(TestTranslator, :translate, fn %Message{domain: "errors"}, _opts ->
         {:ok, "no puede estar vacío"}
