@@ -12,7 +12,7 @@ are not there.
 ```elixir
 def deps do
   [
-    {:understudy, path: "../understudy"},
+    {:understudy, github: "mxgrn/understudy"},
     # only if you use the default translator
     {:req_llm, "~> 1.0"}
   ]
