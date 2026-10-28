@@ -7,6 +7,8 @@ defmodule Understudy do
   your own translator.
   """
 
+  alias Understudy.Translations
+
   @doc """
   Translates text that is not known at compile time, for example text built
   from data.
@@ -35,7 +37,7 @@ defmodule Understudy do
   end
 
   @doc """
-  Translates and caches all messages in the `.pot` templates of the backend that
+  Translates and caches the messages in the `.pot` templates of the backend that
   the `.po` files of `locale` do not have. Run it after a deploy to fill the cache
   before users ask for the messages.
 
@@ -47,18 +49,21 @@ defmodule Understudy do
     * `:domains` - the domains to prewarm. Defaults to all `.pot` files.
     * `:max_concurrency` - the number of messages to translate at the same time.
       Defaults to `5`.
+    * `:skip_translated` - skip the messages that the `.po` files of `locale` have.
+      Defaults to `true`. With `false`, it translates and caches all messages. The
+      `.po` translations still win at runtime.
   """
   def prewarm(backend, locale, opts \\ []) do
-    opts = Keyword.validate!(opts, [:domains, max_concurrency: 5])
+    opts = Keyword.validate!(opts, [:domains, max_concurrency: 5, skip_translated: true])
 
-    if Understudy.Translations.source_locale?(backend, locale) do
+    if Translations.source_locale?(backend, locale) do
       raise ArgumentError, "#{inspect(locale)} is the source locale of #{inspect(backend)}"
     end
 
     failed =
       backend
       |> template_messages(opts[:domains])
-      |> Task.async_stream(&prewarm_message(backend, locale, &1),
+      |> Task.async_stream(&prewarm_message(backend, locale, opts[:skip_translated], &1),
         max_concurrency: opts[:max_concurrency],
         ordered: false,
         timeout: :infinity
@@ -87,26 +92,38 @@ defmodule Understudy do
         do: {domain, message}
   end
 
-  # The backend falls back to the translator only for messages that the .po files do not have.
-  # Each placeholder gets an empty binding, so that the result is not a missing-bindings error.
-  defp prewarm_message(backend, locale, {domain, message}) do
+  # Through lgettext/lngettext, the backend falls back to the translator only for messages that
+  # the .po files do not have. Each placeholder gets an empty binding, so that the result is not
+  # a missing-bindings error.
+  defp prewarm_message(backend, locale, skip_translated, {domain, message}) do
     {context, text} = Expo.Message.key(message)
     context = if context == "", do: nil, else: context
 
-    result =
+    plural_text =
       case message do
-        %Expo.Message.Singular{} ->
+        %Expo.Message.Plural{msgid_plural: plural_text} -> IO.iodata_to_binary(plural_text)
+        %Expo.Message.Singular{} -> nil
+      end
+
+    result =
+      case {skip_translated, plural_text} do
+        {true, nil} ->
           backend.lgettext(locale, domain, context, text, empty_bindings(text))
 
-        %Expo.Message.Plural{msgid_plural: plural_text} ->
-          plural_text = IO.iodata_to_binary(plural_text)
+        {true, plural_text} ->
           bindings = empty_bindings(text <> plural_text)
           backend.lngettext(locale, domain, context, text, plural_text, 1, bindings)
+
+        {false, nil} ->
+          Translations.translate(backend, locale, domain, context, text)
+
+        {false, plural_text} ->
+          Translations.translate_plural(backend, locale, domain, context, text, plural_text, 1)
       end
 
     case result do
       {:ok, _translation} -> :ok
-      {:default, _text} -> {:error, {domain, context, text}}
+      _default_or_error -> {:error, {domain, context, text}}
     end
   end
 

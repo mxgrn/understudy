@@ -84,6 +84,10 @@ translate. Use `domains: ["default"]` to prewarm only some domains, and
 `max_concurrency:` (default `5`) to set how many messages it translates at the
 same time.
 
+With `skip_translated: false`, it also translates and caches the messages that
+the `.po` files have. The `.po` translations still win at runtime, so Understudy
+uses those cache rows only after you remove the `.po` entries.
+
 Text that you give to `Understudy.translate/3` is not in the templates, so
 prewarming does not translate it.
 

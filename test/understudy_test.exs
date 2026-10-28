@@ -50,6 +50,19 @@ defmodule UnderstudyTest do
              ]
     end
 
+    test "also translates the messages that the .po files have when skip_translated is false" do
+      stub(TestTranslator, :translate, fn
+        %Message{text: "Start review"}, _opts -> {:ok, "Comenzar repaso"}
+        %Message{plural_text: nil} = message, _opts -> {:ok, message.text}
+        message, _opts -> {:ok, [message.text, message.plural_text]}
+      end)
+
+      assert Understudy.prewarm(@backend, "es", domains: ["default"], skip_translated: false) ==
+               :ok
+
+      assert TestRepo.get_by!(Translation, text: "Start review").value == "Comenzar repaso"
+    end
+
     test "prewarms only the given domains" do
       expect(TestTranslator, :translate, fn %Message{domain: "errors"}, _opts ->
         {:ok, "no puede estar vacío"}
