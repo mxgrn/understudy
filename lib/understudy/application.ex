@@ -4,7 +4,7 @@ defmodule Understudy.Application do
 
   @impl true
   def start(_type, _args) do
-    children = []
+    children = [Understudy.MemoryCache]
     Supervisor.start_link(children, strategy: :one_for_one, name: Understudy.Supervisor)
   end
 end
