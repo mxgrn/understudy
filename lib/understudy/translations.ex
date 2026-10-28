@@ -85,6 +85,34 @@ defmodule Understudy.Translations do
     text |> Gettext.Interpolation.Default.keys() |> Enum.uniq()
   end
 
+  def preload(backend, locale, force) do
+    config = backend.__understudy__(:config)
+    loaded_key = {:loaded, backend, locale}
+
+    if config.memory_cache and (force or is_nil(MemoryCache.get(loaded_key))) do
+      entries =
+        from(t in Translation,
+          where: t.locale == ^locale,
+          order_by: t.plural_index,
+          select: {t.domain, t.context, t.text, t.plural_text, t.value}
+        )
+        |> config.repo.all()
+        # The same key as in fetch/3. The database stores a missing context as "".
+        |> Enum.group_by(
+          fn {domain, context, text, plural_text, _value} ->
+            {backend, locale, domain, if(context == "", do: nil, else: context), text,
+             plural_text}
+          end,
+          fn {_domain, _context, _text, _plural_text, value} -> value end
+        )
+        |> Map.to_list()
+
+      MemoryCache.put_all([{loaded_key, true} | entries])
+    end
+
+    :ok
+  end
+
   defp fetch(backend, config, message) do
     key =
       {backend, message.locale, message.domain, message.context, message.text,

@@ -20,6 +20,8 @@ defmodule Understudy.MemoryCache do
 
   def put(key, value), do: :ets.insert(@table, {key, value})
 
+  def put_all(entries), do: :ets.insert(@table, entries)
+
   def clear, do: :ets.delete_all_objects(@table)
 
   @impl true

@@ -91,6 +91,21 @@ uses those cache rows only after you remove the `.po` entries.
 Text that you give to `Understudy.translate/3` is not in the templates, so
 prewarming does not translate it.
 
+## Preloading a locale into memory
+
+The memory cache starts empty when the app starts, and it fills one message
+at a time. To load all cached translations of a locale with one query, for
+example when a user changes to that locale, run:
+
+```elixir
+Understudy.preload(MyApp.Gettext, "es")
+```
+
+Only the first call for each backend and locale on a node queries the
+database. Later calls do nothing, until `Understudy.MemoryCache.clear/0` or
+`force: true`. Each node has its own memory cache, so `preload/3` loads the
+locale only on the node where it runs.
+
 ## Backend options
 
 - `:repo` (required): the Ecto repo with the `understudy_translations` table.

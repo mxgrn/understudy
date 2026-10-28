@@ -99,4 +99,53 @@ defmodule UnderstudyTest do
       assert_raise ArgumentError, fn -> Understudy.prewarm(@backend, "en-GB") end
     end
   end
+
+  describe "preload/3" do
+    test "loads the cached translations of the locale into memory" do
+      stub(TestTranslator, :translate, fn
+        %Message{plural_text: nil}, _opts -> {:ok, "Voltear"}
+        _message, _opts -> {:ok, ["%{count} tarjeta", "%{count} tarjetas"]}
+      end)
+
+      Understudy.translate(Understudy.TestGettext, "Flip", locale: "es", context: "button")
+
+      Gettext.with_locale(Understudy.TestGettext, "es", fn ->
+        Gettext.ngettext(Understudy.TestGettext, "%{count} card", "%{count} cards", 2)
+      end)
+
+      Understudy.MemoryCache.clear()
+
+      assert Understudy.preload(Understudy.TestGettext, "es") == :ok
+
+      TestRepo.delete_all(Translation)
+      reject(&TestTranslator.translate/2)
+      Gettext.put_locale(Understudy.TestGettext, "es")
+
+      assert Understudy.translate(Understudy.TestGettext, "Flip", context: "button") == "Voltear"
+
+      assert Gettext.ngettext(Understudy.TestGettext, "%{count} card", "%{count} cards", 2) ==
+               "2 tarjetas"
+    end
+
+    test "queries the database only once for each locale unless forced" do
+      test_pid = self()
+
+      :telemetry.attach(
+        "count-queries",
+        [:understudy, :test_repo, :query],
+        fn _event, _measurements, _metadata, _config -> send(test_pid, :query) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach("count-queries") end)
+
+      Understudy.preload(Understudy.TestGettext, "es")
+      Understudy.preload(Understudy.TestGettext, "es")
+      Understudy.preload(Understudy.TestGettext, "es", force: true)
+
+      assert_received :query
+      assert_received :query
+      refute_received :query
+    end
+  end
 end

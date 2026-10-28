@@ -37,6 +37,24 @@ defmodule Understudy do
   end
 
   @doc """
+  Loads all cached translations of `locale` from the database into the memory
+  cache with one query, for example when a user changes to that locale.
+
+  It queries the database only on the first call for each backend and locale on
+  this node. Later translations of that locale go into the memory cache one at a
+  time, as usual. `Understudy.MemoryCache.clear/0` resets it. It does nothing
+  when the memory cache is off.
+
+  ## Options
+
+    * `:force` - query the database again. Defaults to `false`.
+  """
+  def preload(backend, locale, opts \\ []) do
+    opts = Keyword.validate!(opts, force: false)
+    Translations.preload(backend, locale, opts[:force])
+  end
+
+  @doc """
   Translates and caches the messages in the `.pot` templates of the backend that
   the `.po` files of `locale` do not have. Run it after a deploy to fill the cache
   before users ask for the messages.
