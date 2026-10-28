@@ -19,3 +19,11 @@ defmodule Understudy.TestGettextWithoutMemoryCache do
     translator: Understudy.TestTranslator,
     memory_cache: false
 end
+
+defmodule Understudy.TestGettextWithTemplates do
+  use Understudy.Backend,
+    otp_app: :understudy,
+    priv: Path.expand("gettext", __DIR__),
+    repo: Understudy.TestRepo,
+    translator: Understudy.TestTranslator
+end

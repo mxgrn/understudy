@@ -27,4 +27,50 @@ defmodule UnderstudyTest do
                "Bien joué, Ana !"
     end
   end
+
+  describe "prewarm/3" do
+    @backend Understudy.TestGettextWithTemplates
+
+    test "translates and caches the template messages that the locale's .po files do not have" do
+      expect(TestTranslator, :translate, 4, fn
+        %Message{text: "Flip", context: "button"}, _opts -> {:ok, "Voltear"}
+        %Message{text: "Add %{word}"}, _opts -> {:ok, "Añadir %{word}"}
+        %Message{text: "%{count} card"}, _opts -> {:ok, ["%{count} tarjeta", "%{count} tarjetas"]}
+        %Message{text: "can't be blank", domain: "errors"}, _opts -> {:ok, "no puede estar vacío"}
+      end)
+
+      assert Understudy.prewarm(@backend, "es") == :ok
+
+      assert TestRepo.all(Translation) |> Enum.map(& &1.value) |> Enum.sort() == [
+               "%{count} tarjeta",
+               "%{count} tarjetas",
+               "Añadir %{word}",
+               "Voltear",
+               "no puede estar vacío"
+             ]
+    end
+
+    test "prewarms only the given domains" do
+      expect(TestTranslator, :translate, fn %Message{domain: "errors"}, _opts ->
+        {:ok, "no puede estar vacío"}
+      end)
+
+      assert Understudy.prewarm(@backend, "es", domains: ["errors"]) == :ok
+    end
+
+    test "returns the messages that it could not translate" do
+      stub(TestTranslator, :translate, fn
+        %Message{text: "Flip"}, _opts -> {:error, :timeout}
+        %Message{plural_text: nil}, _opts -> {:ok, "Añadir %{word}"}
+        _message, _opts -> {:ok, ["%{count} tarjeta", "%{count} tarjetas"]}
+      end)
+
+      assert Understudy.prewarm(@backend, "es", domains: ["default"]) ==
+               {:error, [{"default", "button", "Flip"}]}
+    end
+
+    test "raises for the source locale" do
+      assert_raise ArgumentError, fn -> Understudy.prewarm(@backend, "en-GB") end
+    end
+  end
 end

@@ -68,6 +68,25 @@ For text that is not known at compile time, use `Understudy.translate/3`:
 Understudy.translate(MyApp.Gettext, "You're done with #{language.name}!", locale: "de")
 ```
 
+## Prewarming the cache
+
+To translate all messages before users ask for them, for example after a
+deploy, run:
+
+```elixir
+Understudy.prewarm(MyApp.Gettext, "es")
+```
+
+It reads the `.pot` templates of the backend (run `mix gettext.extract` first)
+and translates each message that the `.po` files of the locale do not have. It
+returns `:ok`, or `{:error, failed}` with the messages that it could not
+translate. Use `domains: ["default"]` to prewarm only some domains, and
+`max_concurrency:` (default `5`) to set how many messages it translates at the
+same time.
+
+Text that you give to `Understudy.translate/3` is not in the templates, so
+prewarming does not translate it.
+
 ## Backend options
 
 - `:repo` (required): the Ecto repo with the `understudy_translations` table.

@@ -1,0 +1,5 @@
+msgid ""
+msgstr ""
+
+msgid "can't be blank"
+msgstr ""

@@ -1,0 +1,17 @@
+msgid ""
+msgstr ""
+
+msgid "Start review"
+msgstr ""
+
+msgctxt "button"
+msgid "Flip"
+msgstr ""
+
+msgid "Add %{word}"
+msgstr ""
+
+msgid "%{count} card"
+msgid_plural "%{count} cards"
+msgstr[0] ""
+msgstr[1] ""

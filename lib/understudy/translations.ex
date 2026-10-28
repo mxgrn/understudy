@@ -68,6 +68,10 @@ defmodule Understudy.Translations do
     Gettext.Plural.UnknownLocaleError -> :error
   end
 
+  def source_locale?(backend, locale) do
+    base_language(locale) == base_language(backend.__understudy__(:config).source_locale)
+  end
+
   defp skip?(message) do
     String.trim(message.text) == "" or
       base_language(message.locale) == base_language(message.source_locale)

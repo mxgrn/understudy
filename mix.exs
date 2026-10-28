@@ -25,6 +25,7 @@ defmodule Understudy.MixProject do
   defp deps do
     [
       {:gettext, "~> 0.26 or ~> 1.0"},
+      {:expo, "~> 0.5.1 or ~> 1.0"},
       {:ecto_sql, "~> 3.12"},
       {:req_llm, "~> 1.0", optional: true},
       {:postgrex, ">= 0.0.0", only: :test},
