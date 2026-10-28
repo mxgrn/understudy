@@ -29,6 +29,45 @@ defmodule Understudy.Translations do
     end
   end
 
+  def translate_plural(backend, locale, domain, context, text, plural_text, count) do
+    config = backend.__understudy__(:config)
+    plural_info = plural_info(config.plural_forms, locale)
+
+    message = %Message{
+      text: text,
+      plural_text: plural_text,
+      locale: locale,
+      source_locale: config.source_locale,
+      domain: domain,
+      context: context,
+      placeholders: Enum.uniq(placeholders(text) ++ placeholders(plural_text))
+    }
+
+    with false <- skip?(message),
+         {:ok, examples} <- plural_examples(config.plural_forms, plural_info),
+         {:ok, forms} <- fetch(backend, config, %{message | plural_examples: examples}) do
+      {:ok, Enum.at(forms, config.plural_forms.plural(plural_info, count))}
+    else
+      _ -> :error
+    end
+  end
+
+  defp plural_info(plural_forms, locale) do
+    if function_exported?(plural_forms, :init, 1),
+      do: plural_forms.init(%{locale: locale}),
+      else: locale
+  end
+
+  # A few sample counts for each plural form, so that the translator knows the order of the forms.
+  defp plural_examples(plural_forms, plural_info) do
+    nplurals = plural_forms.nplurals(plural_info)
+    groups = Enum.group_by(0..200, &plural_forms.plural(plural_info, &1))
+
+    {:ok, Enum.map(0..(nplurals - 1), &Enum.take(Map.get(groups, &1, []), 3))}
+  rescue
+    Gettext.Plural.UnknownLocaleError -> :error
+  end
+
   defp skip?(message) do
     String.trim(message.text) == "" or
       base_language(message.locale) == base_language(message.source_locale)
@@ -113,8 +152,16 @@ defmodule Understudy.Translations do
     end
   end
 
-  defp placeholders_match?(message, form) do
+  defp placeholders_match?(%Message{plural_text: nil} = message, form) do
     MapSet.new(placeholders(form)) == MapSet.new(message.placeholders)
+  end
+
+  # A plural form can omit the count (for example "one card"), but not other placeholders.
+  defp placeholders_match?(message, form) do
+    source = MapSet.new(message.placeholders)
+    form_keys = MapSet.new(placeholders(form))
+
+    MapSet.subset?(form_keys, source) and MapSet.subset?(MapSet.delete(source, :count), form_keys)
   end
 
   defp form_count(%Message{plural_examples: nil}), do: 1

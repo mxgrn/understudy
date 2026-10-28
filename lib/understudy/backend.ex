@@ -47,11 +47,40 @@ defmodule Understudy.Backend do
             super(locale, domain, msgctxt, msgid, bindings)
         end
       end
+
+      def handle_missing_plural_translation(
+            locale,
+            domain,
+            msgctxt,
+            msgid,
+            msgid_plural,
+            n,
+            bindings
+          ) do
+        case Understudy.Translations.translate_plural(
+               __MODULE__,
+               locale,
+               domain,
+               msgctxt,
+               msgid,
+               msgid_plural,
+               n
+             ) do
+          {:ok, translation} ->
+            __gettext__(:interpolation).runtime_interpolate(
+              translation,
+              Map.put(bindings, :count, n)
+            )
+
+          :error ->
+            super(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
+        end
+      end
     end
   end
 
   @doc false
-  def config!(understudy_opts, _gettext_opts) do
+  def config!(understudy_opts, gettext_opts) do
     understudy_opts =
       Keyword.validate!(understudy_opts, [
         :repo,
@@ -71,7 +100,10 @@ defmodule Understudy.Backend do
       translator: translator,
       translator_opts: translator_opts,
       source_locale: understudy_opts[:source_locale],
-      memory_cache: understudy_opts[:memory_cache]
+      memory_cache: understudy_opts[:memory_cache],
+      plural_forms:
+        gettext_opts[:plural_forms] ||
+          Application.get_env(:gettext, :plural_forms, Gettext.Plural)
     }
   end
 end

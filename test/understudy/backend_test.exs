@@ -90,4 +90,50 @@ defmodule Understudy.BackendTest do
       assert TestRepo.aggregate(Translation, :count) == 0
     end
   end
+
+  describe "plural messages" do
+    test "translates all plural forms and picks the form for the count" do
+      Gettext.put_locale(Understudy.TestGettext, "ru")
+
+      expect(TestTranslator, :translate, fn message, _opts ->
+        assert %Message{
+                 text: "%{count} card",
+                 plural_text: "%{count} cards",
+                 placeholders: [:count],
+                 plural_examples: [[1, 21, 31], [2, 3, 4], [0, 5, 6]]
+               } = message
+
+        {:ok, ["%{count} карточка", "%{count} карточки", "%{count} карточек"]}
+      end)
+
+      assert ngettext("%{count} card", "%{count} cards", 21) == "21 карточка"
+      assert ngettext("%{count} card", "%{count} cards", 3) == "3 карточки"
+      assert ngettext("%{count} card", "%{count} cards", 5) == "5 карточек"
+    end
+
+    test "accepts a form without the count" do
+      expect(TestTranslator, :translate, fn _message, _opts ->
+        {:ok, ["una tarjeta", "%{count} tarjetas"]}
+      end)
+
+      assert ngettext("%{count} card", "%{count} cards", 1) == "una tarjeta"
+    end
+
+    test "falls back to the source text when the number of forms is wrong" do
+      Gettext.put_locale(Understudy.TestGettext, "ru")
+
+      expect(TestTranslator, :translate, fn _message, _opts ->
+        {:ok, ["%{count} карточка", "%{count} карточек"]}
+      end)
+
+      assert ngettext("%{count} card", "%{count} cards", 5) == "5 cards"
+    end
+
+    test "falls back to the source text when Gettext does not know the plural rules of the locale" do
+      Gettext.put_locale(Understudy.TestGettext, "tlh")
+      reject(&TestTranslator.translate/2)
+
+      assert ngettext("%{count} card", "%{count} cards", 5) == "5 cards"
+    end
+  end
 end
